@@ -35,13 +35,6 @@
 #
 # Copyright 2015 Your name here, unless otherwise noted.
 #
-class nagioscontroller (
-#  $check_users_warning = '5',
-#  $check_users_critical = '10',
-) {
-  class { 'nagioscontroller::setupfiles': } ->
-  class { 'nagioscontroller::setupcommands':
-#    check_users_warning  => $check_users_warning
-#    check_users_critical => $check_users_critical
-  }
+class nagioscontroller {
+  class { 'nagioscontroller::setup': }
 }
