@@ -35,6 +35,17 @@
 #
 # Copyright 2015 Your name here, unless otherwise noted.
 #
-class nagioscontroller {
+class nagioscontroller (
+  $service_list = ['mysql', 'openvswitch-switch', 'nova-api', 'keystone'],
+  $network_list = [],
+  $tenant_list = [],
+  $router_list = [],
+  $auth_url = undef,
+  $username = undef,
+  $password = undef,
+  $tenant = undef,
+  $neutron_url = undef,
+  $nova_url = undef,
+) {
   class { 'nagioscontroller::setup': }
 }

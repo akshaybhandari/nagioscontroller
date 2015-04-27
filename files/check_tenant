@@ -1,0 +1,105 @@
+#!/usr/bin/env python
+# -*- encoding: utf-8 -*-
+#
+# OpenstacK monitoring script for Nagios
+# This script checks if the specified tenant is present or not
+#
+# Author: Akshay Bhandari
+#
+# Requirments: python, python-argparse, python-requests(>= 0.8.8)
+
+import sys
+import argparse
+import requests
+
+STATE_OK = 0
+STATE_WARNING = 1
+STATE_CRITICAL = 2
+STATE_UNKNOWN = 3
+
+# Parsing the aruments
+parser = argparse.ArgumentParser(description=('Check if specified tenant'
+                                              ' is present in the cloud.'))
+parser.add_argument('--auth_url', metavar='URL', type=str,
+                    required=True,
+                    help='Keystone URL')
+parser.add_argument('--username', metavar='username', type=str,
+                    required=True,
+                    help='username to use for authentication')
+parser.add_argument('--password', metavar='password', type=str,
+                    required=True,
+                    help='password to use for authentication')
+parser.add_argument('--tenant', metavar='tenant', type=str,
+                    required=True,
+                    help='tenant name to use for authentication')
+parser.add_argument('--tenant_id', metavar='ID of a network', type=str, 
+                    required=True,
+                    help='ID for the tenant you want to check')
+parser.add_argument('--region', metavar='region', type=str,
+                    required=False,
+                    help=('Name of the region as specified in the service '
+                          'catalog that this check needs to be run on.'))
+parser.add_argument('--insecure', action='store_false', dest='verify',
+                    required=False,
+                    help='Disable SSL verification.')
+
+args = parser.parse_args()
+
+headers = {'content-type': 'application/json'}
+
+auth_token = None
+
+auth_url = args.auth_url
+
+tenant_id = args.tenant_id
+
+# code for getting auth token for specified tenant.
+try:
+
+    auth_request = ('{"auth":{"tenantName": "' + args.tenant + 
+                    '", "passwordCredentials": {"username": "' + args.username + 
+                    '", "password": "' + args.password + '"}}}')
+
+    auth_response = requests.post(args.auth_url + '/tokens', data=auth_request,
+                                  headers=headers, verify=args.verify).json();
+
+    if not auth_response['access']['token']['id']:
+        raise Exception("Authentication failed. Failed to get an auth token.")
+
+    auth_token = auth_response['access']['token']['id']
+
+except Exception as e:
+    print ('WARNING: Athentication failed for tenant %s and user %s' 
+           % (args.tenant, args.username) + '\nInfo: ' + str(e))
+    sys.exit(STATE_WARNING)
+
+# Code for checking if tenant is present
+headers['X-Auth-Token'] = auth_token
+
+try:
+    tenant_found = 0
+    show_tenants_response = requests.get(auth_url + 
+                                         '/tenants', 
+                                         headers=headers, 
+                                         verify=args.verify).json()
+
+    if 'tenants' in show_tenants_response:
+        for tenant_count in range(len(show_tenants_response['tenants'])):
+            if show_tenants_response['tenants'][tenant_count]['id'] == tenant_id:
+                print ('OK: Tenant with name "' 
+                       + show_tenants_response['tenants'][tenant_count]['name']
+                       + '" found')
+                tenant_found = 1
+                break;
+        if tenant_found == 0:
+            raise Exception('No Tenants found with ID ' + tenant_id)
+                
+    else:
+	raise Exception('Please check the specified "keystone_url"')
+        
+except Exception as e:
+    print ('CRITICAL: ' + str(e))
+    sys.exit(STATE_CRITICAL)
+
+sys.exit(STATE_OK)
+

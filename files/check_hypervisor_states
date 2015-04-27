@@ -1,0 +1,127 @@
+#!/usr/bin/env python
+# -*- encoding: utf-8 -*-
+#
+# OpenstacK monitoring script for Nagios
+#
+# Author: Akshay Bhandari
+#
+# Requirments: python, python-argparse, python-requests(>= 0.8.8)
+
+import sys
+import argparse
+import requests
+
+STATE_OK = 0
+STATE_WARNING = 1
+STATE_CRITICAL = 2
+STATE_UNKNOWN = 3
+
+# Parsing the aruments
+parser = argparse.ArgumentParser(description=('Check Hypervisor Status '
+                                              'in the cloud.'))
+parser.add_argument('--auth_url', metavar='URL', type=str,
+                    required=True,
+                    help='Keystone URL')
+parser.add_argument('--username', metavar='username', type=str,
+                    required=True,
+                    help='username to use for authentication')
+parser.add_argument('--password', metavar='password', type=str,
+                    required=True,
+                    help='password to use for authentication')
+parser.add_argument('--tenant', metavar='tenant', type=str,
+                    required=True,
+                    help='tenant name to use for authentication')
+parser.add_argument('--region', metavar='region', type=str,
+                    required=False,
+                    help=('Name of the region as specified in the service '
+                          'catalog that this check needs to be run on.'))
+parser.add_argument('--nova_url', metavar='http://controller:8774', type=str,
+                    required=False,
+                    help=('nova endpoint to use, in stead '
+                          'of the one returned by Keystone.'))
+parser.add_argument('--insecure', action='store_false', dest='verify',
+                    required=False,
+                    help='Disable SSL verification.')
+args = parser.parse_args()
+
+headers = {'content-type': 'application/json'}
+
+auth_token = None
+
+nova_url = None
+
+
+# code for getting auth token and nova url for specified tenant.
+try:
+
+    auth_request = ('{"auth":{"tenantName": "' + args.tenant + 
+                    '", "passwordCredentials": {"username": "' + args.username + 
+                    '", "password": "' + args.password + '"}}}')
+
+    auth_response = requests.post(args.auth_url + '/tokens', data=auth_request,
+                                  headers=headers, verify=args.verify).json();
+    if not auth_response['access']['token']['id']:
+        raise Exception("Authentication failed. Failed to get an auth token.")
+
+    auth_token = auth_response['access']['token']['id']
+
+    services = auth_response['access']['serviceCatalog']
+
+    if args.nova_url is None:
+        for service in services:
+            if service['type'] == 'compute':
+                if args.region:
+                    for region_urls in service['endpoints']:
+                        if region_urls['region'] == args.region:
+                            nova_url = region_urls['publicURL']
+                else:
+                    nova_url = service['endpoints'][0]['publicURL']
+    else:
+        nova_url = args.nova_url
+
+    if nova_url is None:
+        raise Exception(("Authentication succeeded but "
+                         "unable to find compute service"))
+
+except Exception as e:
+    print ('WARNING: Athentication failed for tenant %s and user %s' 
+           % (args.tenant, args.username) + '\nInfo: ' + str(e))
+    sys.exit(STATE_WARNING)
+
+# Code for getting list of hypervisors
+headers['X-Auth-Token'] = auth_token
+
+try:
+    hypervisor_list_response = requests.get(nova_url + 
+                                            '/os-availability-zone/detail', 
+                                            headers=headers, 
+                                            verify=args.verify).json()
+    hypervisor_count = 0
+    crashed_hypervisor_count = 0
+    crashed_hypervisor_list = []
+    if "availabilityZoneInfo" in hypervisor_list_response:
+        for zone in hypervisor_list_response['availabilityZoneInfo']:
+            if  zone['zoneName'] != 'internal':
+		if zone['hosts'] != None:
+                    for hypervisor in zone['hosts']:
+                        hypervisor_count += 1
+                        if zone['hosts'][hypervisor]['nova-compute']['available'] is False:
+                            crashed_hypervisor_count += 1
+                            crashed_hypervisor_list.append(str(hypervisor))
+
+    if crashed_hypervisor_count != 0:
+        print ("CRITICAL: %d hypervisors found in crashed state. Crashed Nodes: %s" 
+               % (crashed_hypervisor_count, crashed_hypervisor_list))
+        sys.exit(STATE_CRITICAL)
+    else:
+        print ("OK: Found %d hypervisors running. None are crashed" 
+               % (hypervisor_count))
+
+
+except Exception as e:
+    print ('CRITICAL: Failed to retrieve hypervisors for tenant %s and user %s' 
+           % (args.tenant, args.username) + '\nInfo: ' + str(e))
+    sys.exit(STATE_CRITICAL)
+
+sys.exit(STATE_OK)
+
