@@ -1,12 +1,4 @@
 class nagioscontroller::setup::files {
-  file { "check_memory.sh_${hostname}":
-    ensure => present,
-    path   => '/usr/lib/nagios/plugins/check_memory.sh',
-    source => 'puppet:///modules/nagioscontroller/check_memory.sh',
-    owner  => 'root',
-    group  => 'root',
-    mode   => '0755',
-  }
   file { "check_hypervisor_states_${hostname}":
     ensure => present,
     path   => '/usr/lib/nagios/plugins/check_hypervisor_states',
@@ -35,14 +27,6 @@ class nagioscontroller::setup::files {
     ensure => present,
     path   => '/usr/lib/nagios/plugins/check_router',
     source => 'puppet:///modules/nagioscontroller/check_router',
-    owner  => 'root',
-    group  => 'root',
-    mode   => '0755',
-  }
-  file { "check_service.sh_${hostname}":
-    ensure => present,
-    path   => '/usr/lib/nagios/plugins/check_service.sh',
-    source => 'puppet:///modules/nagioscontroller/check_service.sh',
     owner  => 'root',
     group  => 'root',
     mode   => '0755',
