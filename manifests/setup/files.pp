@@ -6,6 +6,7 @@ class nagioscontroller::setup::files {
     owner  => 'root',
     group  => 'root',
     mode   => '0755',
+    require => Package['nagios-nrpe-server'],
   }
   file { "check_network_${hostname}":
     ensure => present,
@@ -14,6 +15,7 @@ class nagioscontroller::setup::files {
     owner  => 'root',
     group  => 'root',
     mode   => '0755',
+    require => Package['nagios-nrpe-server'],
   }
   file { "check_neutron_agents_${hostname}":
     ensure => present,
@@ -22,6 +24,7 @@ class nagioscontroller::setup::files {
     owner  => 'root',
     group  => 'root',
     mode   => '0755',
+    require => Package['nagios-nrpe-server'],
   }
   file { "check_router_${hostname}":
     ensure => present,
@@ -30,6 +33,7 @@ class nagioscontroller::setup::files {
     owner  => 'root',
     group  => 'root',
     mode   => '0755',
+    require => Package['nagios-nrpe-server'],
   }
   file { "check_tenant_${hostname}":
     ensure => present,
@@ -38,5 +42,6 @@ class nagioscontroller::setup::files {
     owner  => 'root',
     group  => 'root',
     mode   => '0755',
+    require => Package['nagios-nrpe-server'],
   }
 }
